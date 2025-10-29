@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Universal Stream Player - HLS & DASH</title>
+  
+  <!-- Shaka Player CSS (for DASH) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shaka-player@4.7.0/dist/controls.css">
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1400px;
+      background: rgba(255, 255, 255, 0.98);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      padding: 25px 30px;
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    .stream-type {
+      background: rgba(255, 255, 255, 0.2);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .video-container {
+      position: relative;
+      width: 100%;
+      background: #000;
+      min-height: 500px;
+    }
+
+    video {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .controls-panel {
+      padding: 30px;
+    }
+
+    .input-group {
+      margin-bottom: 20px;
+    }
+
+    .input-group label {
+      display: block;
+      margin-bottom: 10px;
+      color: #333;
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    .input-wrapper {
+      position: relative;
+    }
+
+    .input-group input {
+      width: 100%;
+      padding: 14px 50px 14px 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      font-size: 14px;
+      transition: all 0.3s;
+      background: white;
+    }
+
+    .input-group input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+    }
+
+    .stream-icon {
+      position: absolute;
+      right: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 20px;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .alert {
+      padding: 15px 20px;
+      border-radius: 12px;
+      margin-top: 15px;
+      display: none;
+      animation: slideIn 0.3s;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .alert.error {
+      background: #fee;
+      color: #c33;
+      border: 2px solid #fcc;
+    }
+
+    .alert.success {
+      background: #efe;
+      color: #2d5;
+      border: 2px solid #cfc;
+    }
+
+    .alert.info {
+      background: #eef;
+      color: #36c;
+      border: 2px solid #ccf;
+    }
+
+    .sample-streams {
+      margin-top: 30px;
+      padding: 25px;
+      background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+      border-radius: 15px;
+    }
+
+    .sample-streams h3 {
+      margin-bottom: 20px;
+      color: #333;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .stream-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .tab-btn {
+      padding: 10px 20px;
+      background: white;
+      border: 2px solid #ddd;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .tab-btn.active {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border-color: transparent;
+    }
+
+    .streams-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 15px;
+    }
+
+    .sample-stream {
+      padding: 15px;
+      background: white;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+      border: 2px solid transparent;
+      position: relative;
+    }
+
+    .sample-stream:hover {
+      border-color: #667eea;
+      transform: translateY(-3px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    .sample-stream .badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .sample-stream .title {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+      font-size: 15px;
+      padding-right: 60px;
+    }
+
+    .sample-stream .url {
+      font-size: 12px;
+      color: #666;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 30px;
+    }
+
+    .loading.active {
+      display: block;
+    }
+
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 15px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      color: #666;
+      font-weight: 500;
+    }
+
+    .info-box {
+      background: #e3f2fd;
+      border-left: 4px solid #2196f3;
+      padding: 15px;
+      margin-top: 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #1565c0;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: 0;
+      }
+
+      .container {
+        border-radius: 0;
+      }
+
+      .controls-panel {
+        padding: 20px;
+      }
+
+      .streams-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .header h1 {
+        font-size: 20px;
+      }
+    }
+
+    /* Shaka Player custom styling */
+    .shaka-video-container {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎬 Universal Stream Player</h1>
+      <div class="stream-type" id="streamType">Ready</div>
+    </div>
+
+    <div class="video-container" id="videoContainer" data-shaka-player-container>
+      <video 
+        id="player" 
+        data-shaka-player
+        playsinline 
+        controls
+      ></video>
+    </div>
+
+    <div class="controls-panel">
+      <div class="input-group">
+        <label for="streamUrl">
+          📡 Enter Stream URL (HLS or DASH)
+        </label>
+        <div class="input-wrapper">
+          <input 
+            type="text" 
+            id="streamUrl" 
+            placeholder="https://example.com/stream/playlist.m3u8 or manifest.mpd"
+            autocomplete="off"
+          >
+          <span class="stream-icon" id="streamIcon">🔗</span>
+        </div>
+      </div>
+
+      <button class="btn" id="loadBtn" onclick="loadCustomStream()">
+        <span>▶️</span>
+        <span>Load Stream</span>
+      </button>
+
+      <div id="alert" class="alert"></div>
+
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div class="loading-text">Loading stream...</div>
+      </div>
+
+      <div class="info-box">
+        ℹ️ <strong>Supported Formats:</strong> HLS (.m3u8), DASH (.mpd), MP4, WebM
+      </div>
+
+      <div class="sample-streams">
+        <h3>📺 Test Streams</h3>
+        
+        <div class="stream-tabs">
+          <button class="tab-btn active" onclick="showTab('hls')">HLS Streams</button>
+          <button class="tab-btn" onclick="showTab('dash')">DASH Streams</button>
+        </div>
+
+        <div id="hlsStreams" class="streams-grid">
+          <div class="sample-stream" onclick="loadSampleStream('https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8')">
+            <span class="badge">HLS</span>
+            <div class="title">🎥 Mux Test Stream</div>
+            <div class="url">https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8</div>
+          </div>
+          <div class="sample-stream" onclick="loadSampleStream('https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8')">
+            <span class="badge">HLS</span>
+            <div class="title">📡 Live Test Stream</div>
+            <div class="url">https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8</div>
+          </div>
+          <div class="sample-stream" onclick="loadSampleStream('https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8')">
+            <span class="badge">HLS</span>
+            <div class="title">🎬 Tears of Steel</div>
+            <div class="url">https://demo.unified-streaming.com/.../tears-of-steel.ism/.m3u8</div>
+          </div>
+          <div class="sample-stream" onclick="loadSampleStream('https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8')">
+            <span class="badge">HLS</span>
+            <div class="title">🎞️ Sintel Movie</div>
+            <div class="url">https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8</div>
+          </div>
+        </div>
+
+        <div id="dashStreams" class="streams-grid" style="display: none;">
+          <div class="sample-stream" onclick="loadSampleStream('https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd')">
+            <span class="badge">DASH</span>
+            <div class="title">🐰 Big Buck Bunny</div>
+            <div class="url">https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd</div>
+          </div>
+          <div class="sample-stream" onclick="loadSampleStream('https://dash.akamaized.net/envivio/EnvivioDash3/manifest.mpd')">
+            <span class="badge">DASH</span>
+            <div class="title">🎬 Envivio Demo</div>
+            <div class="url">https://dash.akamaized.net/envivio/EnvivioDash3/manifest.mpd</div>
+          </div>
+          <div class="sample-stream" onclick="loadSampleStream('https://livesim.dashif.org/livesim/chunkdur_1/ato_7/testpic4_8s/Manifest.mpd')">
+            <span class="badge">DASH</span>
+            <div class="title">🔴 DASH Live Simulator</div>
+            <div class="url">https://livesim.dashif.org/livesim/.../Manifest.mpd</div>
+          </div>
+          <div class="sample-stream" onclick="loadSampleStream('https://storage.googleapis.com/shaka-demo-assets/angel-one/dash.mpd')">
+            <span class="badge">DASH</span>
+            <div class="title">👼 Angel One</div>
+            <div class="url">https://storage.googleapis.com/shaka-demo-assets/angel-one/dash.mpd</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shaka Player (for DASH) -->
+  <script src="https://cdn.jsdelivr.net/npm/shaka-player@4.7.0/dist/shaka-player.compiled.js"></script>
+  <!-- HLS.js (for HLS in non-Safari browsers) -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.12/dist/hls.min.js"></script>
+
+  <script>
+    let player;
+    let hls;
+    let ui;
+    const videoElement = document.getElementById('player');
+    const videoContainer = document.getElementById('videoContainer');
+
+    // Initialize Shaka Player
+    async function initShakaPlayer() {
+      if (!shaka.Player.isBrowserSupported()) {
+        console.error('Shaka Player not supported');
+        return false;
+      }
+
+      player = new shaka.Player(videoElement);
+
+      // Create UI
+      ui = new shaka.ui.Overlay(player, videoContainer, videoElement);
+
+      // Configure UI
+      const config = {
+        controlPanelElements: [
+          'play_pause',
+          'time_and_duration',
+          'spacer',
+          'mute',
+          'volume',
+          'fullscreen',
+          'overflow_menu'
+        ],
+        overflowMenuButtons: [
+          'quality',
+          'captions',
+          'playback_rate',
+          'cast'
+        ]
+      };
+      ui.configure(config);
+
+      // Error handling
+      player.addEventListener('error', onShakaError);
+
+      return true;
+    }
+
+    function onShakaError(event) {
+      const error = event.detail;
+      console.error('Shaka Player error:', error);
+      showAlert('❌ Player error: ' + error.message, 'error');
+    }
+
+    function showAlert(message, type = 'info') {
+      const alert = document.getElementById('alert');
+      alert.textContent = message;
+      alert.className = `alert ${type}`;
+      alert.style.display = 'block';
+      
+      setTimeout(() => {
+        alert.style.display = 'none';
+      }, 5000);
+    }
+
+    function showLoading(show) {
+      const loading = document.getElementById('loading');
+      const btn = document.getElementById('loadBtn');
+      loading.classList.toggle('active', show);
+      btn.disabled = show;
+    }
+
+    function updateStreamType(type) {
+      const streamType = document.getElementById('streamType');
+      const streamIcon = document.getElementById('streamIcon');
+      
+      switch(type) {
+        case 'hls':
+          streamType.textContent = '🎬 HLS Stream';
+          streamIcon.textContent = '📺';
+          break;
+        case 'dash':
+          streamType.textContent = '🎯 DASH Stream';
+          streamIcon.textContent = '🎮';
+          break;
+        case 'mp4':
+          streamType.textContent = '🎥 MP4 Video';
+          streamIcon.textContent = '📹';
+          break;
+        default:
+          streamType.textContent = 'Ready';
+          streamIcon.textContent = '🔗';
+      }
+    }
+
+    async function loadStream(url) {
+      if (!url) {
+        showAlert('⚠️ Please enter a stream URL', 'error');
+        return;
+      }
+
+      showLoading(true);
+      console.log('Loading stream:', url);
+
+      try {
+        // Clean up previous instances
+        if (hls) {
+          hls.destroy();
+          hls = null;
+        }
+
+        // Detect stream type
+        const isDash = url.includes('.mpd');
+        const isHls = url.includes('.m3u8');
+        const isMp4 = url.includes('.mp4') || url.includes('.webm');
+
+        if (isDash) {
+          // Load DASH stream with Shaka Player
+          updateStreamType('dash');
+          
+          if (!player) {
+            await initShakaPlayer();
+          }
+
+          await player.load(url);
+          showLoading(false);
+          showAlert('✅ DASH stream loaded successfully!', 'success');
+          videoElement.play();
+
+        } else if (isHls) {
+          // Load HLS stream
+          updateStreamType('hls');
+
+          if (Hls.isSupported()) {
+            // Use HLS.js for browsers that don't support HLS natively
+            hls = new Hls({
+              maxMaxBufferLength: 100,
+              enableWorker: true,
+              lowLatencyMode: true,
+            });
+
+            hls.loadSource(url);
+            hls.attachMedia(videoElement);
+
+            hls.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
+              console.log('HLS manifest loaded, levels:', data.levels.length);
+              showLoading(false);
+              showAlert('✅ HLS stream loaded successfully!', 'success');
+              videoElement.play();
+            });
+
+            hls.on(Hls.Events.ERROR, function (event, data) {
+              console.error('HLS error:', data);
+              if (data.fatal) {
+                showLoading(false);
+                switch (data.type) {
+                                    case Hls.ErrorTypes.NETWORK_ERROR:
+                    showAlert('❌ Network error. Trying to recover...', 'error');
+                    hls.startLoad();
+                    break;
+                  case Hls.ErrorTypes.MEDIA_ERROR:
+                    showAlert('❌ Media error. Trying to recover...', 'error');
+                    hls.recoverMediaError();
+                    break;
+                  default:
+                    showAlert('❌ Fatal error. Cannot play stream.', 'error');
+                    hls.destroy();
+                    break;
+                }
+              }
+            });
+
+          } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+            // Native HLS support (Safari)
+            videoElement.src = url;
+            
+            videoElement.addEventListener('loadeddata', () => {
+              showLoading(false);
+              showAlert('✅ HLS stream loaded successfully!', 'success');
+            });
+            
+            videoElement.addEventListener('error', () => {
+              showLoading(false);
+              showAlert('❌ Error loading HLS stream', 'error');
+            });
+          } else {
+            showLoading(false);
+            showAlert('❌ HLS not supported in this browser', 'error');
+          }
+
+        } else if (isMp4) {
+          // Load MP4/WebM directly
+          updateStreamType('mp4');
+          videoElement.src = url;
+          
+          videoElement.addEventListener('loadeddata', () => {
+            showLoading(false);
+            showAlert('✅ Video loaded successfully!', 'success');
+          });
+          
+          videoElement.addEventListener('error', () => {
+            showLoading(false);
+            showAlert('❌ Error loading video', 'error');
+          });
+
+        } else {
+          // Try with Shaka Player as fallback
+          showLoading(false);
+          showAlert('⚠️ Unknown stream format. Trying to play...', 'info');
+          
+          if (!player) {
+            await initShakaPlayer();
+          }
+          
+          try {
+            await player.load(url);
+            showAlert('✅ Stream loaded successfully!', 'success');
+          } catch (e) {
+            showAlert('❌ Unable to play this stream format', 'error');
+          }
+        }
+
+      } catch (error) {
+        showLoading(false);
+        console.error('Error:', error);
+        showAlert('❌ ' + error.message, 'error');
+      }
+    }
+
+    function loadCustomStream() {
+      const url = document.getElementById('streamUrl').value.trim();
+      loadStream(url);
+    }
+
+    function loadSampleStream(url) {
+      document.getElementById('streamUrl').value = url;
+      loadStream(url);
+    }
+
+    function showTab(type) {
+      const hlsStreams = document.getElementById('hlsStreams');
+      const dashStreams = document.getElementById('dashStreams');
+      const tabs = document.querySelectorAll('.tab-btn');
+      
+      tabs.forEach(tab => tab.classList.remove('active'));
+      
+      if (type === 'hls') {
+        hlsStreams.style.display = 'grid';
+        dashStreams.style.display = 'none';
+        tabs[0].classList.add('active');
+      } else {
+        hlsStreams.style.display = 'none';
+        dashStreams.style.display = 'grid';
+        tabs[1].classList.add('active');
+      }
+    }
+
+    // Initialize on page load
+    window.addEventListener('DOMContentLoaded', async () => {
+      // Initialize Shaka Player
+      await initShakaPlayer();
+
+      // Load stream from URL parameter
+      const params = new URLSearchParams(window.location.search);
+      const urlParam = params.get('url');
+      
+      if (urlParam) {
+        document.getElementById('streamUrl').value = urlParam;
+        loadStream(urlParam);
+      }
+    });
+
+    // Allow Enter key to load stream
+    document.getElementById('streamUrl').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        loadCustomStream();
+      }
+    });
+
+    // Detect stream type when typing
+    document.getElementById('streamUrl').addEventListener('input', (e) => {
+      const url = e.target.value;
+      const icon = document.getElementById('streamIcon');
+      
+      if (url.includes('.m3u8')) {
+        icon.textContent = '📺';
+      } else if (url.includes('.mpd')) {
+        icon.textContent = '🎮';
+      } else if (url.includes('.mp4')) {
+        icon.textContent = '📹';
+      } else {
+        icon.textContent = '🔗';
+      }
+    });
+  </script>
+</body>
+</html>
